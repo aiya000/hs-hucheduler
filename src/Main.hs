@@ -3,7 +3,7 @@
 module Main where
 
 import Control.Exception.Safe (SomeException, Exception, throwM, MonadCatch)
-import Control.Monad (when)
+import Control.Monad (when, forM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Either (runEitherT)
 import Data.List (foldl1')
@@ -15,7 +15,8 @@ import Data.Time.Format (formatTime, defaultTimeLocale)
 import Safe (readMay)
 import System.EasyFile (doesFileExist)
 import System.Environment (getEnv)
-import TextShow (TextShow, showb, showt, printT)
+import TextShow (TextShow, showb, showt)
+import qualified Data.Text.IO as TIO
 import qualified TextShow as TS
 
 -- | A schedule of a day
@@ -48,13 +49,6 @@ instance TextShow Schedules where
                   "土: " <> showt sat  <>  "\n" <>
                   "日: " <> showt sun
 
--- | An exception for reading config file
-data ConfigurationException = ConfigurationException String
-instance Exception ConfigurationException
-instance Show ConfigurationException where
-  show (ConfigurationException e) = "config: " ++ e
-
-
 -- | The default value of Schedules
 emptySchedules :: Schedules
 emptySchedules = Schedules
@@ -67,16 +61,76 @@ emptySchedules = Schedules
   , sundaySchedule    = ScheduleOfDay []
   }
 
+-- | Give a @ScheduleOfDay@ of @DayOfWeek@ in @Schedules@
+scheduleOf :: Schedules -> DayOfWeek -> ScheduleOfDay
+scheduleOf schedules Monday    = mondaySchedule schedules
+scheduleOf schedules ThuesDay  = thuesdaySchedule schedules
+scheduleOf schedules WednesDay = wednesdaySchedule schedules
+scheduleOf schedules ThursDay  = thursdaySchedule schedules
+scheduleOf schedules Friday    = fridaySchedule schedules
+scheduleOf schedules Saturday  = saturdaySchedule schedules
+scheduleOf schedules Sunday    = sundaySchedule schedules
+
+-- |
+-- Convert Int to @DayOfWeek@ .
+-- The range is 1-7.
+toDayOfWeek :: Int -> Maybe DayOfWeek
+toDayOfWeek 1 = Just Monday
+toDayOfWeek 2 = Just ThuesDay
+toDayOfWeek 3 = Just WednesDay
+toDayOfWeek 4 = Just ThursDay
+toDayOfWeek 5 = Just Friday
+toDayOfWeek 6 = Just Saturday
+toDayOfWeek 7 = Just Sunday
+toDayOfWeek _ = Nothing
+
+
+data DayOfWeek = Monday | ThuesDay | WednesDay | ThursDay | Friday | Saturday | Sunday
+  deriving (Show)
+
+getDayOfWeekOfToday :: (MonadIO m, MonadCatch m) => m DayOfWeek
+getDayOfWeekOfToday = do
+  asInt <- liftIO (read . formatTime defaultTimeLocale "%u" <$> getCurrentTime)
+  case toDayOfWeek asInt of
+    Nothing -> throwM . DateTimeCalcException $ "Getting today's information is failed"
+    Just a  -> return a
+
+
+-- | An exception for reading config file
+data ConfigurationException = ConfigurationException String
+  deriving (Show)
+instance Exception ConfigurationException
+
+-- | An exception for calculation of date and time
+data DateTimeCalcException = DateTimeCalcException String
+  deriving (Show)
+instance Exception DateTimeCalcException
+
 
 main :: IO ()
 main = do
   schedulesOrNot <- runEitherT readHuchedulerConfig
   case schedulesOrNot of
-    Left  e         -> putStrLn $ show (e :: SomeException)
+    Left  e         -> print (e :: SomeException)
     Right schedules -> do
       x <- todayIsConfirmed
-      when (not x) $ do
-        printT schedules
+      when (not x) $ viewSchedulesOfToday schedules
+  where
+    viewSchedulesOfToday :: Schedules -> IO ()
+    viewSchedulesOfToday schedules = do
+      dayOfWeekOfTodayOrNot <- runEitherT getDayOfWeekOfToday
+      case dayOfWeekOfTodayOrNot of
+        Left e                 -> print (e :: SomeException)
+        Right dayOfWeekOfToday -> do
+          let scheduleOfToday = schedules `scheduleOf` dayOfWeekOfToday
+          printSchedule scheduleOfToday
+
+    printSchedule :: ScheduleOfDay -> IO ()
+    printSchedule (ScheduleOfDay []) = putStrLn "Today's schedule is nothing !"
+    printSchedule (ScheduleOfDay xs) = do
+      putStrLn "+ Today's schedule"
+      forM_ xs $ TIO.putStrLn . ("\t- " <>)
+
 
 
 -- |
