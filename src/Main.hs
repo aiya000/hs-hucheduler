@@ -3,19 +3,22 @@
 module Main where
 
 import Control.Exception.Safe (SomeException, Exception, throwM, MonadCatch)
+import Control.Monad (when)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Either (runEitherT)
-import Data.Default (Default, def)
 import Data.List (foldl1')
 import Data.Monoid ((<>))
 import Data.Text (Text)
+import Data.Time.Calendar (Day)
+import Data.Time.Clock (UTCTime(..), getCurrentTime)
+import Data.Time.Format (formatTime, defaultTimeLocale)
 import Safe (readMay)
 import System.EasyFile (doesFileExist)
 import System.Environment (getEnv)
-import TextShow (TextShow, showb, showt)
-import qualified Data.Text.IO as TIO
+import TextShow (TextShow, showb, showt, printT)
 import qualified TextShow as TS
 
+-- | A schedule of a day
 data ScheduleOfDay = ScheduleOfDay [Text]
   deriving (Show, Read)
 instance TextShow ScheduleOfDay where
@@ -25,7 +28,7 @@ instance TextShow ScheduleOfDay where
       encloseSpaceCon :: Text -> Text -> Text
       encloseSpaceCon x y = x <> ", " <> y
 
--- | A schedule of day of week
+-- | The schedules of a week
 data Schedules = Schedules
   { mondaySchedule    :: ScheduleOfDay
   , thuesdaySchedule  :: ScheduleOfDay
@@ -35,8 +38,6 @@ data Schedules = Schedules
   , saturdaySchedule  :: ScheduleOfDay
   , sundaySchedule    :: ScheduleOfDay
   } deriving (Show, Read)
-instance Default Schedules where
-  def = emptySchedules
 instance TextShow Schedules where
   showb (Schedules mon thue wed thur fri sat sun) =
     TS.fromText $ "月: " <> showt mon  <>  "\n" <>
@@ -47,12 +48,14 @@ instance TextShow Schedules where
                   "土: " <> showt sat  <>  "\n" <>
                   "日: " <> showt sun
 
+-- | An exception for reading config file
 data ConfigurationException = ConfigurationException String
 instance Exception ConfigurationException
 instance Show ConfigurationException where
   show (ConfigurationException e) = "config: " ++ e
 
 
+-- | The default value of Schedules
 emptySchedules :: Schedules
 emptySchedules = Schedules
   { mondaySchedule    = ScheduleOfDay []
@@ -70,9 +73,15 @@ main = do
   schedulesOrNot <- runEitherT readHuchedulerConfig
   case schedulesOrNot of
     Left  e         -> putStrLn $ show (e :: SomeException)
-    Right schedules -> TIO.putStrLn $ showt schedules
+    Right schedules -> do
+      x <- todayIsConfirmed
+      when (not x) $ do
+        printT schedules
 
 
+-- |
+-- Read config file detail as @Schedules@ .
+-- It is possibility to be thrown an exception about the config file.
 readHuchedulerConfig :: (MonadIO m, MonadCatch m) => m Schedules
 readHuchedulerConfig = do
   configFilePath <- liftIO getConfigFilePath
@@ -89,3 +98,22 @@ readHuchedulerConfig = do
 
     getConfigFilePath :: IO FilePath
     getConfigFilePath = (++ relativeConfigFilePath) <$> getEnv "HOME"
+
+
+-- |
+-- Return absolutely path of daily checked file of @day@.
+-- If this file is exist, regard daily checking is already finished.
+getMarkerFilePath :: Day -> IO FilePath
+getMarkerFilePath day = do
+  homeDir <- getEnv "HOME"
+  let fileName = formatTime defaultTimeLocale "%F" day ++ "_is-cheched"
+  return $ homeDir ++ "/.cache/hucheduler/daily/" ++ fileName
+
+-- |
+-- Return True if today's checking is already finished.
+-- Please see @getMarkerFilePath@ .
+todayIsConfirmed :: (MonadIO m, MonadCatch m) => m Bool
+todayIsConfirmed = do
+  today      <- liftIO (utctDay <$> getCurrentTime)
+  markerFile <- liftIO $ getMarkerFilePath today
+  liftIO $ doesFileExist markerFile
