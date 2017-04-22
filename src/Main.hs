@@ -17,6 +17,7 @@ import System.EasyFile (doesFileExist)
 import System.Environment (getEnv)
 import TextShow (TextShow, showb, showt)
 import qualified Data.Text.IO as TIO
+import qualified System.Console.Readline as R
 import qualified TextShow as TS
 
 -- | A schedule of a day
@@ -114,7 +115,9 @@ main = do
     Left  e         -> print (e :: SomeException)
     Right schedules -> do
       x <- todayIsConfirmed
-      when (not x) $ viewSchedulesOfToday schedules
+      when (not x) $ do
+        viewSchedulesOfToday schedules
+        confirmMarking
   where
     viewSchedulesOfToday :: Schedules -> IO ()
     viewSchedulesOfToday schedules = do
@@ -131,6 +134,22 @@ main = do
       putStrLn "+ Today's schedule"
       forM_ xs $ TIO.putStrLn . ("\t- " <>)
 
+    confirmMarking :: IO ()
+    confirmMarking = do
+      maybeInputChar <- fmap head <$> R.readline "Do you remember reading the schedule ? (y/n) "
+      case maybeInputChar of
+        Nothing  -> confirmMarking  -- Confirm once more
+        Just 'y' -> markToday
+        Just _   -> return ()
+
+    -- remember reading the schedule.
+    -- See @getMarkerFilePath@ .
+    markToday :: IO ()
+    markToday = do
+      today          <- utctDay <$> getCurrentTime
+      markerFilePath <- getMarkerFilePath today
+      writeFile markerFilePath ""
+      putStrLn "reading the schedule is remembered !"
 
 
 -- |
