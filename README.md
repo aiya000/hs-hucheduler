@@ -21,5 +21,18 @@
     - Please remove `~/.cache/hucheduler/daily/{today}_is-cheched` file if you want to view today's schedule once more
 
 
+# In my use case
+I'm writing below line in my ~/.zshrc
+
+```sh
+.
+.
+(some line)
+.
+.
+hucheduler
+```
+
+
 # Requirements
 - `stack` (haskell-stack)
