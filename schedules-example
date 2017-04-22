@@ -1,0 +1,9 @@
+Schedules {
+  mondaySchedule = ScheduleOfDay ["Running in the morning", "Taking a shower after running"],
+  thuesdaySchedule = ScheduleOfDay ["Sending mail to Ms.hikari"],
+  wednesdaySchedule = ScheduleOfDay [],
+  thursdaySchedule = ScheduleOfDay ["Watching TV"],
+  fridaySchedule = ScheduleOfDay ["Running in the morning"],
+  saturdaySchedule = ScheduleOfDay ["Meeting my friends"],
+  sundaySchedule = ScheduleOfDay []
+}

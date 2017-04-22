@@ -1,0 +1,9 @@
+Schedules {
+  mondaySchedule = ScheduleOfDay [],
+  thuesdaySchedule = ScheduleOfDay [],
+  wednesdaySchedule = ScheduleOfDay [],
+  thursdaySchedule = ScheduleOfDay [],
+  fridaySchedule = ScheduleOfDay [],
+  saturdaySchedule = ScheduleOfDay [],
+  sundaySchedule = ScheduleOfDay []
+}
