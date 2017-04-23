@@ -2,11 +2,11 @@
 
 module Main where
 
-import Data.Hucheduler
 import Control.Exception.Safe (SomeException, Exception, throwM, MonadCatch)
 import Control.Monad (when, forM_)
 import Control.Monad.IO.Class (MonadIO, liftIO)
 import Control.Monad.Trans.Either (runEitherT)
+import Data.Hucheduler
 import Data.Monoid ((<>))
 import Data.Time.Calendar (Day)
 import Data.Time.Clock (UTCTime(..), getCurrentTime)
@@ -14,8 +14,8 @@ import Data.Time.Format (formatTime, defaultTimeLocale)
 import Safe (readMay)
 import System.EasyFile (doesFileExist)
 import System.Environment (getEnv)
+import System.IO (hFlush, stdout)
 import qualified Data.Text.IO as TIO
-import qualified System.Console.Readline as R
 
 
 -- | An exception for reading config file
@@ -54,11 +54,12 @@ main = do
     -- | Make sure you should remember it or not
     confirmToRemember :: IO ()
     confirmToRemember = do
-      maybeInputChar <- fmap head <$> R.readline "Do you remember reading the schedule ? (y/n) "
-      case maybeInputChar of
-        Nothing  -> confirmToRemember  -- Confirm once more
-        Just 'y' -> createMarkerOfToday
-        Just _   -> return ()
+      prompt "Do you remember reading the schedule ? (y/n) "
+      x <- getChar
+      case x of
+        'y' -> createMarkerOfToday
+        'n' -> return ()
+        _   -> putStrLn "" >> confirmToRemember  -- Confirm once more
 
     -- Remember reading the schedule.
     -- See @getMarkerFilePath@ .
@@ -109,3 +110,7 @@ todayIsConfirmed = do
   today      <- liftIO (utctDay <$> getCurrentTime)
   markerFile <- liftIO $ getMarkerFilePath today
   liftIO $ doesFileExist markerFile
+
+-- | Execute putStr without buffering
+prompt :: String -> IO ()
+prompt msg = putStr msg >> hFlush stdout

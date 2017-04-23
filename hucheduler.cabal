@@ -22,7 +22,6 @@ executable hucheduler
   build-depends:       base >= 4.7 && < 5
                      , easy-file
                      , either
-                     , readline
                      , safe
                      , safe-exceptions
                      , text
