@@ -24,7 +24,7 @@ data ConfigurationException = ConfigurationException String
 instance Exception ConfigurationException
 
 
-
+-- | Run app
 main :: IO ()
 main = do
   schedulesOrNot <- runEitherT readHuchedulerConfig
@@ -34,7 +34,7 @@ main = do
       x <- todayIsConfirmed
       when (not x) $ do
         viewSchedulesOfToday schedules
-        confirmMarking
+        confirmToRemember
   where
     viewSchedulesOfToday :: Schedules -> IO ()
     viewSchedulesOfToday schedules = do
@@ -51,18 +51,19 @@ main = do
       putStrLn "+ Today's schedule"
       forM_ xs $ TIO.putStrLn . ("\t- " <>)
 
-    confirmMarking :: IO ()
-    confirmMarking = do
+    -- | Make sure you should remember it or not
+    confirmToRemember :: IO ()
+    confirmToRemember = do
       maybeInputChar <- fmap head <$> R.readline "Do you remember reading the schedule ? (y/n) "
       case maybeInputChar of
-        Nothing  -> confirmMarking  -- Confirm once more
-        Just 'y' -> markToday
+        Nothing  -> confirmToRemember  -- Confirm once more
+        Just 'y' -> createMarkerOfToday
         Just _   -> return ()
 
-    -- remember reading the schedule.
+    -- Remember reading the schedule.
     -- See @getMarkerFilePath@ .
-    markToday :: IO ()
-    markToday = do
+    createMarkerOfToday :: IO ()
+    createMarkerOfToday = do
       today          <- utctDay <$> getCurrentTime
       markerFilePath <- getMarkerFilePath today
       writeFile markerFilePath ""
@@ -93,6 +94,7 @@ readHuchedulerConfig = do
 -- |
 -- Return absolutely path of daily checked file of @day@.
 -- If this file is exist, regard daily checking is already finished.
+-- ('mark' and 'marker' means files of ~/.cache/hucheduler/daily/*_is-checked)
 getMarkerFilePath :: Day -> IO FilePath
 getMarkerFilePath day = do
   homeDir <- getEnv "HOME"
